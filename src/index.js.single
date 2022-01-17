@@ -1,0 +1,214 @@
+// Dependencies
+const core = require('@actions/core');
+const fs = require('fs');
+const {google} = require('googleapis');
+const upload = require('./upload');
+
+// Github Action Inputs
+const serviceAccountKeyJSON = core.getInput('service_account_key_json', { required: true });
+const folderId = core.getInput('folder_id', { required: true });
+const localPath = core.getInput('local_path', { required: true });
+const remoteFilename = core.getInput('remote_filename', { required: false });
+const subfolderName = core.getInput('subfolder_name', { required: false });
+const overwrite = core.getInput('overwrite', { required: false });
+
+async function getDriveClient(serviceAccountKeyJSON) {
+  const credentials = JSON.parse(serviceAccountKeyJSON);
+  const scopes = ['https://www.googleapis.com/auth/drive.file'];
+  const auth = new google.auth.GoogleAuth(
+    credentials,
+    scopes,
+  );
+  return google.drive({ version: 'v3', auth });
+}
+
+async function getFolderId(drive, folderId, subfolderName) {
+    if (!subfolderName) {
+        return folderId;
+    }
+
+    const { data: { files } } = await drive.files.list({
+        q: `name='${subfolderName}' and '${folderId}' in parents
+            and mimeType == 'application/vnd.google-apps.folder'`,
+        fields: 'files(id)',
+    });
+
+    if (files.length > 1) {
+        throw new Error(`More than one folder named ${subfolderName} found.`);
+    }
+    if (files.length === 1) {
+        return files[0].id;
+    }
+
+    const subfolderMetadata = {
+        name: subfolderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [folderId],
+    };
+    const { data: { id: subfolderId } } = await drive.files.create({
+        resource: subfolderMetadata,
+        fields: 'id',
+    });
+
+    return subfolderId;
+}
+
+async function getFileId(drive, filename, folderId) {
+    const { data: { files } } = await drive.files.list({
+        q: `name='${filename}' and '${folderId}' in parents
+            and mimeType != 'application/vnd.google-apps.folder'`,
+        fields: 'files(id)',
+    });
+
+    if (files.length > 1) {
+        throw new Error(`More than one file named ${filename} found.`);
+    }
+    if (files.length === 1) {
+        return files[0].id;
+    }
+
+    return null;
+}
+
+
+async function run() {
+  try {
+    const drive = await getDriveClient();
+
+  } catch (error) {
+    core.setFailed(error.message);
+  }
+}
+
+run();
+
+
+const {google} = require('googleapis');
+
+
+const serviceAccountKeyJSON = core.getInput('service_account_key_json', { required: true });
+const folderId = core.getInput('folder_id', { required: true });
+const localPath = core.getInput('local_path', { required: true });
+const remoteFilename = core.getInput('remote_filename', { required: false });
+const subfolderName = core.getInput('subfolder_name', { required: false });
+const overwrite = core.getInput('overwrite', { required: false });
+
+let uploadFile = async function (drive) {
+    const uploadFolderId = await getUploadFolderId();
+
+    if (!filename) {
+        filename = target.split('/').pop();
+    }
+
+    let fileId = null;
+
+    if (overwrite) {
+        fileId = await getFileId(filename, uploadFolderId);
+    }
+
+    const fileData = {
+        mimeType: HERE
+        body: fs.createReadStream(target),
+    };
+
+    if (fileId === null) {
+        if (overwrite) {
+            core.info(`File ${filename} does not exist yet. Creating it.`);
+        } else {
+            core.info(`Creating file ${filename}.`);
+        }
+        const fileMetadata = {
+            name: filename,
+            parents: [uploadFolderId],
+            mimeType
+        };
+        core.info(`${fileMetadata.mimeType}`);
+
+        drive.files.create({
+            resource: fileMetadata,
+            media: fileData,
+            uploadType: 'multipart',
+            fields: 'id',
+        }).catch((error) => core.setFailed(error));
+    } else {
+        core.info(`File ${filename} already exists. Updating it.`);
+        drive.files.update({
+            fileId,
+            media: fileData,
+        });
+    }
+}
+
+
+async function run() {
+    const drive = await getDriveClient();
+    const uploadFolderId = await getUploadFolderId();
+
+    let localMimeType;
+    let remoteMimeType;
+
+    if (convert) {
+        if (target.endsWith('xlsx')) {
+            localMimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            remoteMimeType = 'application/vnd.google-apps.spreadsheet';
+        } else if (target.endsWith('csv')) {
+            localMimeType = 'text/csv';
+            remoteMimeType = 'application/vnd.google-apps.spreadsheet';
+        }
+    }
+
+    if (!filename) {
+        filename = target.split('/').pop();
+        if (convert) {
+            if (filename.endsWith('xlsx')) {
+                filename = filename.slice(0, -5);
+            } else if (target.endsWith('csv')) {
+                filename = filename.slice(0, -4);
+            }
+        }
+    }
+
+    let fileId = null;
+
+    if (overwrite) {
+        fileId = await getFileId(filename, uploadFolderId);
+    }
+
+    const fileData = {
+        mimeType: localMimeType,
+        body: fs.createReadStream(target),
+    };
+
+    if (fileId === null) {
+        if (overwrite) {
+            actions.info(`File ${filename} does not exist yet. Creating it.`);
+        } else {
+            actions.info(`Creating file ${filename}.`);
+        }
+        const fileMetadata = {
+            name: filename,
+            parents: [uploadFolderId],
+            mimeType: remoteMimeType,
+        };
+
+        drive.files.create({
+            resource: fileMetadata,
+            media: fileData,
+            uploadType: 'multipart',
+            fields: 'id',
+        });
+    } else {
+        actions.info(`File ${filename} already exists. Updating it.`);
+        drive.files.update({
+            fileId,
+            media: fileData,
+        });
+    }
+}
+
+main().catch((error) => actions.setFailed(error));
+
+
+exports.getDriveClient = getDriveClient;
+exports.getFolderId = getFolderId;
+exports.getFileId = getFileId;

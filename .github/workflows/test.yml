@@ -7,19 +7,57 @@ on:
       - 'releases/*'
 
 jobs:
-  # unit tests
-  units:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - run: npm ci
     - run: npm test
 
-  # test action works running from the graph
-  test:
+  integration-tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: ./
+    - uses: actions/checkout@v1
+    - name: Upload test.txt
+      uses: ./
       with:
-        milliseconds: 1000
+        service_account_key_json: ${{ secrets.SERVICE_ACCOUNT_KEY_JSON }}
+        local_path: test/test.txt
+        folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        overwrite: true
+    - name: Upload csv
+      uses: ./
+      with:
+        service_account_key_json: ${{ secrets.SERVICE_ACCOUNT_KEY_JSON }}
+        local_path: test/test.csv
+        folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        remote_filename: csv
+        overwrite: true
+        convert: true
+    - name: Upload test.csv
+      uses: ./
+      with:
+        service_account_key_json: ${{ secrets.SERVICE_ACCOUNT_KEY_JSON }}
+        local_path: test/test.csv
+        folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        overwrite: true
+        convert: false
+    - name: Upload spreadsheet
+      uses: ./
+      with:
+        service_account_key_json: ${{ secrets.SERVICE_ACCOUNT_KEY_JSON }}
+        local_path: test/test.xlsx
+        folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        subfolder_name: subfolder
+        remote_filename: spreadsheet
+        overwrite: true
+        convert: true
+    - name: Upload test.xlsx
+      uses: ./
+      with:
+        service_account_key_json: ${{ secrets.SERVICE_ACCOUNT_KEY_JSON }}
+        local_path: test/test.xlsx
+        folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        subfolder_name: subfolder
+        overwrite: true
+        convert: false

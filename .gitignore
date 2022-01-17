@@ -65,3 +65,9 @@ typings/
 
 # next.js build output
 .next
+
+# Vim
+.*.swp
+
+# Secrets
+secrets
