@@ -27,7 +27,7 @@
   "homepage": "https://github.com/csala/google-drive-upload",
   "dependencies": {
     "@actions/core": "^1.6.0",
-    "googleapis": "^92.0.0"
+    "googleapis": "^96.0.0"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.31.1",
